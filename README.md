@@ -1,9 +1,9 @@
 # Operating Systems Project: Graph Traffic Simulation
 
 ## Team Members
-* **michaelNz** - [ID] - Responsibilities: Core Raylib GUI rendering, discrete jump animation math, and build environment (CMake) setup.
-* **mohanadYa** - [ID] - Responsibilities: File I/O parsing (`loadGraphFromFile`), memory management, and Dijkstra's shortest-path algorithm implementation.
-* **yazeedTa** - [ID] - Responsibilities: Animation state-machine timing (1-second node delays, 300ms edge jumps), `Makefile` configuration, and GitHub repository management/documentation.
+* **michaelNz** -  - Responsibilities: Core Raylib GUI rendering, discrete jump animation math, and build environment (CMake) setup.
+* **mohanadYa** -  - Responsibilities: File I/O parsing (`loadGraphFromFile`), memory management, and Dijkstra's shortest-path algorithm implementation.
+* **yazeedTa** -  - Responsibilities: Animation state-machine timing (1-second node delays, 300ms edge jumps), `Makefile` configuration, and GitHub repository management/documentation.
 
 ## Project Theme / Background Story
 Our graph represents an Inter-city Delivery Network. The nodes represent regional distribution centers, and the edges represent the highways connecting them. The weights on the edges represent the travel time required for a delivery truck to travel between the centers.
