@@ -4,6 +4,7 @@
 #include "dijkstra.h"
 
 #define MAX_TRAVELERS 16
+
 #define TRAVELER_COLORS_COUNT 8
 
 typedef struct {
@@ -20,7 +21,7 @@ typedef struct {
     int            done;
     /* current pixel position */
     float          x, y;
-    int            waiting;  
+    int            waiting;  /* 1 = waiting outside node (milestone 6) */
 } Traveler;
 
 #endif

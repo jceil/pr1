@@ -17,7 +17,7 @@ ALL_SRC = $(SRCDIR)/graph.c \
           $(SRCDIR)/gui.c \
           $(SRCDIR)/gui_multi.c
 
-.PHONY: all milestone1 milestone2 milestone3 milestone4 milestone5 clean
+.PHONY: all milestone1 milestone2 milestone3 milestone4 milestone5 milestone6 clean
 
 all: milestone3
 
@@ -35,6 +35,9 @@ milestone4:
 
 milestone5:
 	$(CC) $(CFLAGS) -DMILESTONE=5 -o $(ROOT)sim $(ALL_SRC) $(LDFLAGS)
+
+milestone6:
+	$(CC) $(CFLAGS) -DMILESTONE=6 -o $(ROOT)sim $(ALL_SRC) $(LDFLAGS) -lpthread
 
 clean:
 	rm -f $(ROOT)dijkstra $(ROOT)sim

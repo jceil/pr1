@@ -12,6 +12,7 @@
 #include "gui_multi.h"
 
 #define MSG_DEST -1
+#define MSG_WAIT -2
 #define STEP_US  300000
 #define WAIT_US  1000000
 
@@ -19,6 +20,7 @@ static int run_m1(int argc, char *argv[]);
 static int run_m2(int argc, char *argv[]);
 static int run_m4(int argc, char *argv[]);
 static int run_m5(int argc, char *argv[]);
+static int run_m6(int argc, char *argv[]);
 
 int main(int argc, char *argv[])
 {
@@ -27,6 +29,7 @@ int main(int argc, char *argv[])
     if (MILESTONE == 3) return run_m2(argc, argv);
     if (MILESTONE == 4) return run_m4(argc, argv);
     if (MILESTONE == 5) return run_m5(argc, argv);
+    if (MILESTONE == 6) return run_m6(argc, argv);
     fprintf(stderr, "Unknown milestone\n");
     return EXIT_FAILURE;
 }
@@ -191,6 +194,140 @@ static int run_m5(int argc, char *argv[])
             close(sfds[i][1]);
         }
     }
+    graph_free(g);
+    return EXIT_SUCCESS;
+}
+
+/* ── milestone 6: same as 5 + semaphore per node ────────────────────── */
+#include <sys/mman.h>
+#include <semaphore.h>
+
+#define MAX_NODES 15
+
+static void child_run_m6(int src, int dst, const char *filepath,
+                          int write_fd, int start_fd, sem_t *node_sems)
+{
+    /* wait for PLAY */
+    char go; read(start_fd, &go, 1); close(start_fd);
+
+    int ss[MAX_TRAVELERS], ds[MAX_TRAVELERS], t = 0;
+    Graph *g = parse_input_multi(filepath, ss, ds, &t);
+    if (!g) { int v=MSG_DEST; write(write_fd,&v,sizeof(v)); close(write_fd); exit(1); }
+
+    DijkstraResult r = dijkstra(g, src, dst);
+    if (!r.found) {
+        int v=MSG_DEST; write(write_fd,&v,sizeof(v));
+        close(write_fd); graph_free(g); exit(0);
+    }
+
+    for (int i = 0; i < r.path_len - 1; i++) {
+        int cur  = r.path[i];
+        int next = r.path[i+1];
+
+        /* notify parent: waiting to enter node */
+        int msg_wait = MSG_WAIT;
+        write(write_fd, &msg_wait, sizeof(int));
+
+        /* acquire semaphore for current node (critical section) */
+        sem_wait(&node_sems[cur]);
+
+        /* notify parent: arrived at cur */
+        write(write_fd, &cur, sizeof(int));
+
+        /* stay in node for 1 second */
+        usleep(WAIT_US);
+
+        /* travel time on edge */
+        int w = 1;
+        for (Edge *e = g->adj[cur]; e; e = e->next)
+            if (e->dst == next) { w = e->weight; break; }
+
+        /* release node */
+        sem_post(&node_sems[cur]);
+
+        /* travel along edge */
+        usleep(w * STEP_US);
+    }
+
+    /* send DESTINATION */
+    int v = MSG_DEST;
+    write(write_fd, &v, sizeof(v));
+    close(write_fd);
+    dijkstra_result_free(&r);
+    graph_free(g);
+    exit(0);
+}
+
+static int run_m6(int argc, char *argv[])
+{
+    if (argc != 2) { fprintf(stderr, "Usage: ./sim <file>\n"); return EXIT_FAILURE; }
+    int srcs[MAX_TRAVELERS], dsts[MAX_TRAVELERS], T = 0;
+    Graph *g = parse_input_multi(argv[1], srcs, dsts, &T);
+    if (!g) return EXIT_FAILURE;
+
+    /* shared memory semaphores — one per node */
+    int N = g->num_vertices;
+    sem_t *node_sems = mmap(NULL, N * sizeof(sem_t),
+                            PROT_READ | PROT_WRITE,
+                            MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (node_sems == MAP_FAILED) { perror("mmap"); return EXIT_FAILURE; }
+    for (int i = 0; i < N; i++)
+        sem_init(&node_sems[i], 1, 1);  /* 1 = shared, initial=1 (binary semaphore) */
+
+    Traveler travelers[MAX_TRAVELERS];
+    int pfds[MAX_TRAVELERS][2];
+    int sfds[MAX_TRAVELERS][2];
+    int do_restart = 1;
+
+    while (do_restart) {
+        /* create all pipes before forking */
+        for (int i = 0; i < T; i++) {
+            pipe(pfds[i]); pipe(sfds[i]);
+            fcntl(pfds[i][0], F_SETFL, O_NONBLOCK);
+            travelers[i].src  = srcs[i];
+            travelers[i].dst  = dsts[i];
+            travelers[i].done = 0;
+            travelers[i].pid  = -1;
+            travelers[i].path = dijkstra(g, srcs[i], dsts[i]);
+        }
+        for (int i = 0; i < T; i++) {
+            pid_t pid = fork();
+            if (pid < 0) { perror("fork"); exit(EXIT_FAILURE); }
+            if (pid == 0) {
+                for (int j = 0; j < T; j++) {
+                    close(pfds[j][0]);
+                    if (j != i) close(pfds[j][1]);
+                    close(sfds[j][1]);
+                    if (j != i) close(sfds[j][0]);
+                }
+                child_run_m6(srcs[i], dsts[i], argv[1],
+                             pfds[i][1], sfds[i][0], node_sems);
+            }
+            travelers[i].pid = pid;
+            close(pfds[i][1]);
+            close(sfds[i][0]);
+        }
+
+        do_restart = gui_multi_run_m5(g, travelers, T, pfds, sfds, srcs, dsts);
+
+        for (int i = 0; i < T; i++) {
+            if (travelers[i].pid > 0) {
+                kill(travelers[i].pid, SIGTERM);
+                waitpid(travelers[i].pid, NULL, 0);
+            }
+            close(pfds[i][0]);
+            close(sfds[i][1]);
+            dijkstra_result_free(&travelers[i].path);
+        }
+        /* reset semaphores on restart */
+        for (int i = 0; i < N; i++) {
+            sem_destroy(&node_sems[i]);
+            sem_init(&node_sems[i], 1, 1);
+        }
+    }
+
+    for (int i = 0; i < N; i++) sem_destroy(&node_sems[i]);
+    munmap(node_sems, N * sizeof(sem_t));
     graph_free(g);
     return EXIT_SUCCESS;
 }
