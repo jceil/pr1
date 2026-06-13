@@ -129,11 +129,19 @@ static void child_run(int src, int dst, const char *filepath,
     }
     for (int i = 0; i < r.path_len - 1; i++) {
         write(write_fd, &r.path[i], sizeof(int));
+        /* wait 1 second at intermediate nodes BEFORE leaving */
+        if (i > 0) usleep(WAIT_US);
+
         int w = 1;
         for (Edge *e = g->adj[r.path[i]]; e; e = e->next)
             if (e->dst == r.path[i+1]) { w = e->weight; break; }
-        usleep(w * STEP_US);
-        if (i > 0 && i < r.path_len - 2) usleep(WAIT_US);
+
+        /* travel the edge step by step */
+        for (int step = 0; step < w; step++) {
+            usleep(STEP_US);
+            int msg_step = -3;
+            write(write_fd, &msg_step, sizeof(int)); // Send JUMP command
+        }
     }
     int v = MSG_DEST;
     write(write_fd, &v, sizeof(v));
@@ -245,8 +253,12 @@ static void child_run_m6(int src, int dst, const char *filepath,
         /* release node */
         sem_post(&node_sems[cur]);
 
-        /* travel along edge */
-        usleep(w * STEP_US);
+        /* travel along edge step by step */
+        for (int step = 0; step < w; step++) {
+            usleep(STEP_US);
+            int msg_step = -3;
+            write(write_fd, &msg_step, sizeof(int)); // Send JUMP command to parent
+        }
     }
 
     /* send DESTINATION */

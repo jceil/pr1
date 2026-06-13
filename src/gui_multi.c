@@ -7,6 +7,7 @@
 #include "gui_multi.h"
 #include "graph.h"
 #include "traveler.h"
+#include <sys/wait.h>
 
 #define WINDOW_W    900
 #define WINDOW_H    700
@@ -270,10 +271,12 @@ int  gui_multi_run_m5(const Graph *g, Traveler *travelers, int T,
     Vector2 pos[MAX_VERTS];
     compute_positions(g->num_vertices, pos);
 
-    /* init traveler positions */
+    /* init traveler positions and animation states */
     for(int i=0;i<T;i++){
         travelers[i].x = pos[travelers[i].src].x;
         travelers[i].y = pos[travelers[i].src].y;
+        travelers[i].jump = 0;
+        travelers[i].path_idx = 0;
     }
 
     int playing   = 0;  /* wait for PLAY before polling pipes */
@@ -281,8 +284,11 @@ int  gui_multi_run_m5(const Graph *g, Traveler *travelers, int T,
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     SetTraceLogLevel(LOG_NONE);
-    InitWindow(WINDOW_W, WINDOW_H, "Traffic Simulation – Milestone 5");
-    SetTargetFPS(FPS);
+    if (MILESTONE == 6) {
+        InitWindow(WINDOW_W, WINDOW_H, "Traffic Simulation – Milestone 6");
+    } else {
+        InitWindow(WINDOW_W, WINDOW_H, "Traffic Simulation – Milestone 5");
+    }    SetTargetFPS(FPS);
 
     Rectangle btn_play    = {WINDOW_W-280, WINDOW_H-54, 120, 40};
     Rectangle btn_restart = {WINDOW_W-150, WINDOW_H-54, 130, 40};
@@ -312,18 +318,41 @@ int  gui_multi_run_m5(const Graph *g, Traveler *travelers, int T,
                         travelers[i].done = 1;
                         travelers[i].x = pos[travelers[i].dst].x;
                         travelers[i].y = pos[travelers[i].dst].y;
+
                         kill(travelers[i].pid, SIGTERM);
+                        waitpid(travelers[i].pid, NULL, 0); /* Zombie process fix */
                         travelers[i].pid = -1;
+
+                    } else if (node == -3) {
+                        /* --- JUMP ANIMATOR --- */
+                        travelers[i].jump++;
+                        int u = travelers[i].path.path[travelers[i].path_idx];
+                        int v = travelers[i].path.path[travelers[i].path_idx + 1];
+                        int w = get_edge_weight(g, u, v);
+                        if (w > 0) {
+                            float frac = (float)travelers[i].jump / (float)w;
+                            travelers[i].x = pos[u].x + frac*(pos[v].x - pos[u].x);
+                            travelers[i].y = pos[u].y + frac*(pos[v].y - pos[u].y);
+                        }
                     } else {
+                        /* ARRIVED AT NODE */
                         int next = -1;
                         DijkstraResult *r = &travelers[i].path;
-                        for(int k=0;k+1<r->path_len;k++)
-                            if(r->path[k]==node){next=r->path[k+1];break;}
+                        for(int k=0;k+1<r->path_len;k++){
+                            if(r->path[k]==node){
+                                next=r->path[k+1];
+                                travelers[i].path_idx = k; /* TRACK CURRENT STEP */
+                                break;
+                            }
+                        }
                         if(next>=0)
                             printf("[PID=%d] arrived at node %d | next node: %d\n",
                                    travelers[i].pid, node, next);
                         fflush(stdout);
+
                         travelers[i].waiting = 0;
+                        travelers[i].jump = 0; /* RESET JUMPS */
+
                         if(node >= 0 && node < g->num_vertices){
                             travelers[i].x = pos[node].x;
                             travelers[i].y = pos[node].y;
