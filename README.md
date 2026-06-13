@@ -1,12 +1,12 @@
 # Operating Systems Project: Graph Traffic Simulation
 
 ## Team Members
-* **michaelNz** -  - Responsibilities: Core Raylib GUI rendering, discrete jump animation math, and build environment (CMake) setup.
-* **mohanadYa** -  - Responsibilities: File I/O parsing (`loadGraphFromFile`), memory management, and Dijkstra's shortest-path algorithm implementation.
-* **yazeedTa** -  - Responsibilities: Animation state-machine timing (1-second node delays, 300ms edge jumps), `Makefile` configuration, and GitHub repository management/documentation.
+* **michaelNz** - Responsibilities: Core Raylib GUI rendering, discrete jump animation math, and build environment (CMake) setup.
+* **mohanadYa** - Responsibilities: File I/O parsing, memory management, and Dijkstra's shortest-path algorithm implementation.
+* **yazeedTa** - Responsibilities: Animation state-machine timing, Makefile configuration, and GitHub repository management/documentation.
 
-## Project Theme / Background Story
-Our graph represents an Inter-city Delivery Network. The nodes represent regional distribution centers, and the edges represent the highways connecting them. The weights on the edges represent the travel time required for a delivery truck to travel between the centers.
+## Project Theme
+Our graph represents an Inter-city Delivery Network. Nodes represent regional distribution centers, and edges represent highways. Weights represent the travel time between centers.
 
 ## Compilation and Execution
 This project includes a uniform `Makefile` to compile specific milestones.
@@ -15,18 +15,41 @@ This project includes a uniform `Makefile` to compile specific milestones.
 * `make milestone1`
 * `make milestone2`
 * `make milestone3`
+* `make milestone4`
+* `make milestone5`
+* `make milestone6`
 * `make clean` (Cleans all compiled files)
 
 ### To run:
-* **Milestone 1:** `./dijkstra <file_name>`
-* **Milestone 2 & 3:** `./sim <file_name>`
+* **Milestone 1:** `./sim tests/test1.txt`
+* **Milestones 2 :** `./sim tests/test2_no_path.txt`
+* **Milestones 3 :** `./sim tests/test3_same_src_dst.txt`
+* **Milestones 4 :** `./sim tests/test_multi.txt`
+* **Milestones 5 :** `./sim tests/test_m5.txt`
+* **Milestones 6 :** `./sim tests/test_m6.txt`
+
+---
 
 ## Milestone Implementations
+
 ### Milestone 1: Dijkstra's Algorithm
-* **Description:** Reads a directed graph from a text file and builds an adjacency matrix. It implements Dijkstra's algorithm to calculate the shortest path from a source node to a destination node, printing the exact path and total weight.
+Reads a directed graph from a text file and builds an adjacency list. Implements Dijkstra's algorithm to calculate the shortest path, handling disconnected graphs and non-negative weights.
 
 ### Milestone 2: Static Graph Display
-* **Description:** Uses the `raylib` library to render a graphical representation of the parsed text file. Nodes are displayed as colored circles with IDs, and edges are drawn as directed arrows with their respective weights, ensuring clear directionality.
+Uses `raylib` to render a graphical representation. Nodes are circles with IDs; edges are directed arrows with weights, using a circular layout algorithm.
 
-### Milestone 3: Animation on the Graph
-* **Description:** Introduces an interactive state-machine animation loop. A distinct entity travels along the pre-calculated shortest path. It utilizes a discrete jumping mechanism, where the entity divides its movement across an edge into $W$ (weight) equal jumps, with each jump taking exactly 300ms. It also implements a mandatory 1-second pause at all intermediate nodes and includes interactive Play/Pause and Restart controls.
+### Milestone 3: Animation
+An interactive state-machine animation where an entity traverses the shortest path. Movement is discrete: edge weight `W` is divided into `W` jumps (300ms each). Includes a mandatory 1-second pause at nodes.
+
+### Milestone 4: Multiple Travelers (Processes)
+Simulates multiple delivery trucks simultaneously. The parent process computes all paths and runs the GUI, while each traveler is a child process (`fork()`). The parent manages child lifecycles, sending `SIGTERM` upon arrival.
+
+### Milestone 5: Inter-Process Communication (IPC)
+
+* **Mechanism:** Pipes (one per traveler for child-to-parent status streaming).
+* **Why:** Pipes provide a clean, unidirectional producer-consumer architecture, allowing isolated child processes to safely stream real-time updates to the GUI controller.
+
+### Milestone 6: Node Synchronization
+
+* **Mechanism:** Binary Semaphores (`sem_t`) stored in shared memory (`mmap` + `pshared=1`).
+* **Logic:** Before entering a node, a traveler executes `sem_wait()`. It occupies the node for 1 second, then executes `sem_post()` to free it. This prevents collision and ensures safe intersection management.
