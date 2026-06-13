@@ -1,19 +1,22 @@
-CC = gcc
-CFLAGS = -Wall -g
-LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+CC      = gcc
+CFLAGS  = -Wall -Wextra -g -Iinclude
+LDFLAGS = -lraylib -lm -lX11
 
-# milestone 1 compiles to 'dijkstra'
-milestone1: main.c
-	$(CC) $(CFLAGS) main.c -o dijkstra $(LDFLAGS)
+ROOT   = $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+SRCDIR = $(ROOT)src
 
-# milestone 2 compiles to 'sim'
-milestone2: main.c
-	$(CC) $(CFLAGS) main.c -o sim $(LDFLAGS)
+SRC_BASE = $(SRCDIR)/graph.c $(SRCDIR)/dijkstra.c $(SRCDIR)/parser.c $(SRCDIR)/main.c
+SRC_GUI  = $(SRCDIR)/gui.c
 
-# milestone 3 compiles to 'sim'
-milestone3: main.c
-	$(CC) $(CFLAGS) main.c -o sim $(LDFLAGS)
+.PHONY: all milestone1 milestone2 milestone3 clean
 
-# make clean cleans all compiled files
+all: milestone3
+
+milestone1:
+	$(CC) $(CFLAGS) -DNO_GUI -o $(ROOT)dijkstra $(SRC_BASE) -lm
+
+milestone2 milestone3:
+	$(CC) $(CFLAGS) -o $(ROOT)sim $(SRC_BASE) $(SRC_GUI) $(LDFLAGS)
+
 clean:
-	rm -f dijkstra sim sim-schd
+	rm -f $(ROOT)dijkstra $(ROOT)sim
