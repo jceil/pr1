@@ -262,3 +262,149 @@ void gui_multi_run(const Graph *g, Traveler *travelers, int T)
     }
     CloseWindow();
 }
+
+/* ── Milestone 5: same GUI as m4 but polls pipes and prints log ─────────── */
+int  gui_multi_run_m5(const Graph *g, Traveler *travelers, int T,
+                      int pfds[][2], int sfds[][2], int *srcs, int *dsts)
+{
+    Vector2 pos[MAX_VERTS];
+    compute_positions(g->num_vertices, pos);
+
+    /* init traveler positions */
+    for(int i=0;i<T;i++){
+        travelers[i].x = pos[travelers[i].src].x;
+        travelers[i].y = pos[travelers[i].src].y;
+    }
+
+    int playing   = 0;  /* wait for PLAY before polling pipes */
+    int started   = 0;  /* children started (go sent) */
+
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
+    SetTraceLogLevel(LOG_NONE);
+    InitWindow(WINDOW_W, WINDOW_H, "Traffic Simulation – Milestone 5");
+    SetTargetFPS(FPS);
+
+    Rectangle btn_play    = {WINDOW_W-280, WINDOW_H-54, 120, 40};
+    Rectangle btn_restart = {WINDOW_W-150, WINDOW_H-54, 130, 40};
+
+    /* init positions */
+    for(int i=0;i<T;i++){
+        travelers[i].x = pos[travelers[i].src].x;
+        travelers[i].y = pos[travelers[i].src].y;
+    }
+
+    while(!WindowShouldClose()){
+        /* poll pipes each frame only when playing */
+        if(playing){
+            for(int i=0;i<T;i++){
+                if(travelers[i].done) continue;
+                int node;
+                while(read(pfds[i][0], &node, sizeof(node)) == sizeof(node)){
+                    if(node == -2){
+                        /* traveler waiting outside node */
+                        travelers[i].waiting = 1;
+                    } else if(node == -1){
+                        travelers[i].waiting = 0;
+                        printf("[PID=%d] arrived at node %d | DESTINATION\n",
+                               travelers[i].pid, travelers[i].dst);
+                        printf("[PID=%d] finished\n", travelers[i].pid);
+                        fflush(stdout);
+                        travelers[i].done = 1;
+                        travelers[i].x = pos[travelers[i].dst].x;
+                        travelers[i].y = pos[travelers[i].dst].y;
+                        kill(travelers[i].pid, SIGTERM);
+                        travelers[i].pid = -1;
+                    } else {
+                        int next = -1;
+                        DijkstraResult *r = &travelers[i].path;
+                        for(int k=0;k+1<r->path_len;k++)
+                            if(r->path[k]==node){next=r->path[k+1];break;}
+                        if(next>=0)
+                            printf("[PID=%d] arrived at node %d | next node: %d\n",
+                                   travelers[i].pid, node, next);
+                        fflush(stdout);
+                        travelers[i].waiting = 0;
+                        if(node >= 0 && node < g->num_vertices){
+                            travelers[i].x = pos[node].x;
+                            travelers[i].y = pos[node].y;
+                        }
+                    }
+                }
+            }
+        }
+
+        /* check all done */
+        int all=1; for(int i=0;i<T;i++) if(!travelers[i].done) all=0;
+
+        BeginDrawing();
+        ClearBackground(COL_BG);
+
+        /* edges */
+        for(int u=0;u<g->num_vertices;u++)
+            for(Edge *e=g->adj[u];e;e=e->next)
+                draw_edge(pos[u],pos[e->dst],e->weight);
+
+        /* nodes */
+        for(int v=0;v<g->num_vertices;v++)
+            draw_node(pos[v],v);
+
+        /* travelers */
+        for(int i=0;i<T;i++){
+            Color col = travelers[i].waiting ?
+                (Color){200,200,200,255} :  /* gray = waiting */
+                TRAV_COLORS[i%N_COLORS];
+            DrawCircle((int)travelers[i].x,(int)travelers[i].y,14,col);
+            char lb[16];snprintf(lb,sizeof(lb),"%d",i);
+            int tw=MeasureText(lb,14);
+            DrawText(lb,(int)travelers[i].x-tw/2,(int)travelers[i].y-7,14,BLACK);
+        }
+
+        /* legend */
+        int lx=16,ly=16;
+        DrawText("Travelers:",lx,ly,20,DARKGRAY);ly+=28;
+        for(int i=0;i<T;i++){
+            DrawCircle(lx+10,ly+10,10,TRAV_COLORS[i%N_COLORS]);
+            char buf[64];
+            snprintf(buf,sizeof(buf),"#%d: %d->%d%s",i,srcs[i],dsts[i],
+                     travelers[i].done?" (done)":"");
+            DrawText(buf,lx+26,ly+3,18,DARKGRAY);ly+=28;
+        }
+
+        /* all done message */
+        if(all && playing){
+            const char *msg="All travelers arrived!";
+            int fs=28,tw=MeasureText(msg,fs);
+            DrawRectangle(WINDOW_W/2-tw/2-16,WINDOW_H/2-28,tw+32,56,(Color){0,0,0,180});
+            DrawText(msg,WINDOW_W/2-tw/2,WINDOW_H/2-fs/2,fs,YELLOW);
+        }
+
+        /* PLAY/STOP button */
+        if(!all){
+            if(draw_btn(btn_play,
+                        playing?"STOP":"PLAY",
+                        playing?COL_BTN_RED:COL_BTN_GRN,
+                        playing?COL_BTN_RED_H:COL_BTN_GRN_H)){
+                playing=!playing;
+                if(playing && !started){
+                    /* send start byte to ALL children exactly once */
+                    started = 1;
+                    for(int i=0;i<T;i++){
+                        char go=1;
+                        write(sfds[i][1], &go, 1);
+                    }
+                }
+            }
+        }
+
+        /* RESTART button — signal caller to restart */
+        if(draw_btn(btn_restart,"RESTART",COL_BTN,COL_BTN_HOV)){
+            CloseWindow();
+            return 1;  /* 1 = restart requested */
+        }
+
+        DrawText("ESC to close",WINDOW_W-160,WINDOW_H-28,16,LIGHTGRAY);
+        EndDrawing();
+    }
+    CloseWindow();
+    return 0;
+}

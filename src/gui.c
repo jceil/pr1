@@ -50,22 +50,10 @@ static void compute_positions(int n, Vector2 *pos)
 {
     float cx = WINDOW_W/2.0f, cy = WINDOW_H/2.0f;
     if (n == 1) { pos[0] = (Vector2){cx,cy}; return; }
-    if (n <= 6) {
-        for (int i=0;i<n;i++){
-            float a=(2.0f*PI*i/n)-PI/2.0f;
-            pos[i]=(Vector2){cx+220.0f*cosf(a), cy+220.0f*sinf(a)};
-        }
-        return;
-    }
-    int inner=n/3; if(inner<3) inner=3;
-    int outer=n-inner;
-    for(int i=0;i<inner;i++){
-        float a=(2.0f*PI*i/inner)-PI/2.0f;
-        pos[i]=(Vector2){cx+140.0f*cosf(a), cy+140.0f*sinf(a)};
-    }
-    for(int i=0;i<outer;i++){
-        float a=(2.0f*PI*i/outer)-PI/2.0f;
-        pos[inner+i]=(Vector2){cx+280.0f*cosf(a), cy+280.0f*sinf(a)};
+    float r = (n <= 6) ? 260.0f : (n <= 10) ? 240.0f : 200.0f;
+    for (int i=0;i<n;i++){
+        float a=(2.0f*PI*i/n)-PI/2.0f;
+        pos[i]=(Vector2){cx+r*cosf(a), cy+r*sinf(a)};
     }
 }
 
@@ -111,7 +99,7 @@ static void draw_edge(Vector2 from, Vector2 to, int weight,
     /* weight label */
     float mx=(s.x+e.x)/2.0f-uy*14.0f, my=(s.y+e.y)/2.0f+ux*14.0f;
     char buf[16]; snprintf(buf,sizeof(buf),"%d",weight);
-    int fs=15, tw=MeasureText(buf,fs);
+    int fs=20, tw=MeasureText(buf,fs);
     DrawText(buf,(int)(mx-tw/2),(int)(my-fs/2),fs,wc);
 }
 
@@ -120,7 +108,7 @@ static void draw_node(Vector2 p, int id, Color fill)
     DrawCircleV(p,NODE_RADIUS,fill);
     DrawCircleLines((int)p.x,(int)p.y,NODE_RADIUS,BLACK);
     char buf[8]; snprintf(buf,sizeof(buf),"%d",id);
-    int fs=18,tw=MeasureText(buf,fs);
+    int fs=24,tw=MeasureText(buf,fs);
     DrawText(buf,(int)(p.x-tw/2),(int)(p.y-fs/2),fs,COL_TEXT);
 }
 
@@ -129,14 +117,14 @@ static int draw_btn(Rectangle r, const char *label, Color base, Color hov)
     bool over=CheckCollisionPointRec(GetMousePosition(),r);
     DrawRectangleRec(r, over?hov:base);
     DrawRectangleLinesEx(r,1.5f,DARKGRAY);
-    int fs=18,tw=MeasureText(label,fs);
+    int fs=22,tw=MeasureText(label,fs);
     DrawText(label,(int)(r.x+r.width/2-tw/2),(int)(r.y+r.height/2-fs/2),fs,WHITE);
     return over&&IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
 }
 
 static void draw_legend(const DijkstraResult *r, int src, int dst)
 {
-    int x=16,y=16,sz=14,gap=22;
+    int x=16,y=16,sz=18,gap=28;
     DrawCircle(x+10,y+10,10,COL_NODE_SRC);
     DrawText(TextFormat("Source (%d)",src),x+26,y+3,sz,DARKGRAY); y+=gap;
     DrawCircle(x+10,y+10,10,COL_NODE_DST);
@@ -225,6 +213,7 @@ void gui_run(const Graph *g, const DijkstraResult *result)
     Agent agent;
     agent_reset(&agent,result,pos);
 
+    SetTraceLogLevel(LOG_NONE);
     InitWindow(WINDOW_W,WINDOW_H,"Traffic Simulation");
     SetTargetFPS(FPS);
 
@@ -288,7 +277,7 @@ void gui_run(const Graph *g, const DijkstraResult *result)
                 agent_start(&agent,result,g,pos);
         }
 
-        DrawText("ESC to close",WINDOW_W-140,WINDOW_H-24,13,LIGHTGRAY);
+        DrawText("ESC to close",WINDOW_W-160,WINDOW_H-28,16,LIGHTGRAY);
         EndDrawing();
     }
     CloseWindow();
