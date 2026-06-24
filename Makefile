@@ -22,6 +22,21 @@ ALL_SRC = $(SRCDIR)/graph.c \
 
 all: milestone3
 
+install-raylib:
+	sudo apt update
+	sudo apt install -y build-essential cmake git \
+		libx11-dev libxrandr-dev libxi-dev \
+		libgl1-mesa-dev libxcursor-dev libxinerama-dev
+	rm -rf /tmp/raylib
+	git clone https://github.com/raysan5/raylib.git /tmp/raylib
+	cd /tmp/raylib && mkdir -p build
+	cd /tmp/raylib/build && cmake ..
+	cd /tmp/raylib/build && make
+	cd /tmp/raylib/build && sudo make install
+	sudo ldconfig
+
+
+
 milestone1:
 	$(CC) $(CFLAGS) -DMILESTONE=1 -o $(ROOT)dijkstra $(ALL_SRC) $(LDFLAGS) -lpthread
 
