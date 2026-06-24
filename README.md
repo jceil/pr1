@@ -68,8 +68,8 @@ Replaces the unordered semaphore wait queue from milestone 6 with two selectable
 
 **Usage:**
 ```bash
-./sim -schd fcfs tests/test_m7.txt
-./sim -schd sjf  tests/test_m7.txt
+./sim -schd fcfs tests/test7.txt
+./sim -schd sjf  tests/test7.txt
 ```
 
 The active algorithm is shown clearly in the top-right corner of the GUI window ("Scheduler: FCFS" / "Scheduler: SJF").
