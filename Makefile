@@ -36,9 +36,9 @@ install-raylib:
 	sudo ldconfig
 
 
-
 milestone1:
 	$(CC) $(CFLAGS) -DMILESTONE=1 -o $(ROOT)dijkstra $(ALL_SRC) $(LDFLAGS) -lpthread
+
 
 milestone2:
 	$(CC) $(CFLAGS) -DMILESTONE=2 -o $(ROOT)sim $(ALL_SRC) $(LDFLAGS) -lpthread
@@ -56,7 +56,7 @@ milestone6:
 	$(CC) $(CFLAGS) -DMILESTONE=6 -o $(ROOT)sim $(ALL_SRC) $(LDFLAGS) -lpthread
 
 milestone7:
-	$(CC) $(CFLAGS) -DMILESTONE=7 -o $(ROOT)sim-schd $(ALL_SRC) $(LDFLAGS) -lpthread
+	$(CC) $(CFLAGS) -DMILESTONE=7 -o $(ROOT)sim $(ALL_SRC) $(LDFLAGS) -lpthread
 
 clean:
-	rm -f $(ROOT)dijkstra $(ROOT)sim $(ROOT)sim-schda
+	rm -f $(ROOT)dijkstra $(ROOT)sim
