@@ -23,8 +23,8 @@ This project includes a uniform `Makefile` to compile specific milestones.
 
 ### To run:
 * **Milestone 1:** `./dijkstra tests/test1.txt`
-* **Milestones 2 :** `./sim tests/test2_no_path.txt`
-* **Milestones 3 :** `./sim tests/test3_same_src_dst.txt`
+* **Milestones 2 :** `./sim tests/test1.txt`
+* **Milestones 3 :** `./sim tests/test1.txt`
 * **Milestones 4 :** `./sim tests/test4.txt`
 * **Milestones 5 :** `./sim tests/test5.txt`
 * **Milestones 6 :** `./sim tests/test6.txt`
