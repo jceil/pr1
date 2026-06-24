@@ -74,5 +74,5 @@ Replaces the unordered semaphore wait queue from milestone 6 with two selectable
 
 The active algorithm is shown clearly in the top-right corner of the GUI window ("Scheduler: FCFS" / "Scheduler: SJF").
 
-**Comparison (FCFS vs SJF) on `tests/test_m7.txt`:**
+**Comparison (FCFS vs SJF) on `tests/test7.txt`:**
 With three travelers all heading toward node 5 through different entry points, FCFS admits travelers strictly in the order they first request the shared node, regardless of how long their remaining trip is — a traveler with a long upcoming edge can make others wait behind it only as long as it itself waited, which is fair but not optimal. SJF instead prioritizes the traveler with the *shortest* upcoming edge, so travelers who have less travel time left clear the bottleneck node faster, slightly reducing the **average wait time** across all travelers at the shared node, at the cost of occasionally delaying a traveler with a longer remaining route even though it arrived earlier. The total wall-clock time to finish all travelers was modestly lower under SJF for this graph because the shorter "next hops" got priority and did not block behind a traveler that was about to take the weight-10 edge.
