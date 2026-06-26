@@ -267,7 +267,7 @@ void gui_multi_run(const Graph *g, Traveler *travelers, int T)
 
 /* ── Milestone 5: same GUI as m4 but polls pipes and prints log ─────────── */
 int  gui_multi_run_m5(const Graph *g, Traveler *travelers, int T,
-                      int pfds[][2], int sfds[][2], int *srcs, int *dsts)
+                      int pfds[][2], int sfds[][2], int afds[][2], int *srcs, int *dsts)
 {
     Vector2 pos[MAX_VERTS];
     compute_positions(g->num_vertices, pos);
@@ -358,6 +358,9 @@ int  gui_multi_run_m5(const Graph *g, Traveler *travelers, int T,
                             travelers[i].x = pos[node].x;
                             travelers[i].y = pos[node].y;
                         }
+                        /* send ACK to child — it can now continue */
+                        char ack = 1;
+                        write(afds[i][1], &ack, 1);
                     }
                 }
             }

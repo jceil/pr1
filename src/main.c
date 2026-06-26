@@ -122,7 +122,7 @@ static int run_m4(int argc, char *argv[])
 }
 
 static void child_run(int src, int dst, const char *filepath,
-                      int write_fd, int start_fd)
+                      int write_fd, int start_fd, int ack_fd)
 {
     char go; read(start_fd, &go, 1); close(start_fd);
     int ss[MAX_TRAVELERS], ds[MAX_TRAVELERS], t = 0;
@@ -135,6 +135,18 @@ static void child_run(int src, int dst, const char *filepath,
     }
     for (int i = 0; i < r.path_len - 1; i++) {
         write(write_fd, &r.path[i], sizeof(int));
+
+        //test
+    //      printf("[PID=%d] waiting for ACK at node %d\n", getpid(), r.path[i]);
+    // fflush(stdout);
+    
+        /* wait for ACK from parent before continuing */
+        char ack; read(ack_fd, &ack, 1);
+
+        //test
+    //      printf("[PID=%d] got ACK, continuing\n", getpid());
+    // fflush(stdout);
+
         /* wait 1 second at intermediate nodes BEFORE leaving */
         if (i > 0) usleep(WAIT_US);
 
@@ -167,6 +179,7 @@ static int run_m5(int argc, char *argv[])
     Traveler travelers[MAX_TRAVELERS];
     int pfds[MAX_TRAVELERS][2];
     int sfds[MAX_TRAVELERS][2];
+    int afds[MAX_TRAVELERS][2];  /* parent->child: ACK */
     int do_restart = 1;
 
     while (do_restart) {
@@ -174,6 +187,7 @@ static int run_m5(int argc, char *argv[])
         for (int i = 0; i < T; i++) {
             pipe(pfds[i]);
             pipe(sfds[i]);
+            pipe(afds[i]);
             fcntl(pfds[i][0], F_SETFL, O_NONBLOCK);
             travelers[i].src  = srcs[i];
             travelers[i].dst  = dsts[i];
@@ -191,14 +205,17 @@ static int run_m5(int argc, char *argv[])
                     if (j != i) close(pfds[j][1]);
                     close(sfds[j][1]);
                     if (j != i) close(sfds[j][0]);
+                    close(afds[j][1]);
+                    if (j != i) close(afds[j][0]);
                 }
-                child_run(srcs[i], dsts[i], argv[1], pfds[i][1], sfds[i][0]);
+                child_run(srcs[i], dsts[i], argv[1], pfds[i][1], sfds[i][0], afds[i][0]);
             }
             travelers[i].pid = pid;
             close(pfds[i][1]);
             close(sfds[i][0]);
+            close(afds[i][0]);
         }
-        do_restart = gui_multi_run_m5(g, travelers, T, pfds, sfds, srcs, dsts);
+        do_restart = gui_multi_run_m5(g, travelers, T, pfds, sfds, afds, srcs, dsts);
         for (int i = 0; i < T; i++) {
             if (travelers[i].pid > 0) {
                 kill(travelers[i].pid, SIGTERM);
@@ -206,6 +223,7 @@ static int run_m5(int argc, char *argv[])
             }
             close(pfds[i][0]);
             close(sfds[i][1]);
+            close(afds[i][1]);
         }
     }
     graph_free(g);
@@ -295,12 +313,13 @@ static int run_m6(int argc, char *argv[])
     Traveler travelers[MAX_TRAVELERS];
     int pfds[MAX_TRAVELERS][2];
     int sfds[MAX_TRAVELERS][2];
+    int afds[MAX_TRAVELERS][2];  /* ACK pipes */
     int do_restart = 1;
 
     while (do_restart) {
         /* create all pipes before forking */
         for (int i = 0; i < T; i++) {
-            pipe(pfds[i]); pipe(sfds[i]);
+            pipe(pfds[i]); pipe(sfds[i]); pipe(afds[i]);
             fcntl(pfds[i][0], F_SETFL, O_NONBLOCK);
             travelers[i].src  = srcs[i];
             travelers[i].dst  = dsts[i];
@@ -317,6 +336,8 @@ static int run_m6(int argc, char *argv[])
                     if (j != i) close(pfds[j][1]);
                     close(sfds[j][1]);
                     if (j != i) close(sfds[j][0]);
+                    close(afds[j][1]);
+                    if (j != i) close(afds[j][0]);
                 }
                 child_run_m6(srcs[i], dsts[i], argv[1],
                              pfds[i][1], sfds[i][0], node_sems);
@@ -324,9 +345,10 @@ static int run_m6(int argc, char *argv[])
             travelers[i].pid = pid;
             close(pfds[i][1]);
             close(sfds[i][0]);
+            close(afds[i][0]);
         }
 
-        do_restart = gui_multi_run_m5(g, travelers, T, pfds, sfds, srcs, dsts);
+        do_restart = gui_multi_run_m5(g, travelers, T, pfds, sfds, afds, srcs, dsts);
 
         for (int i = 0; i < T; i++) {
             if (travelers[i].pid > 0) {
@@ -335,6 +357,7 @@ static int run_m6(int argc, char *argv[])
             }
             close(pfds[i][0]);
             close(sfds[i][1]);
+            close(afds[i][1]);
             dijkstra_result_free(&travelers[i].path);
         }
         /* reset semaphores on restart */
@@ -442,12 +465,13 @@ static int run_m7(int argc, char *argv[])
     Traveler travelers[MAX_TRAVELERS];
     int pfds[MAX_TRAVELERS][2];
     int sfds[MAX_TRAVELERS][2];
+    int afds[MAX_TRAVELERS][2];  /* ACK pipes */
     int do_restart = 1;
 
     while (do_restart) {
         /* create all pipes before forking */
         for (int i = 0; i < T; i++) {
-            pipe(pfds[i]); pipe(sfds[i]);
+            pipe(pfds[i]); pipe(sfds[i]); pipe(afds[i]);
             fcntl(pfds[i][0], F_SETFL, O_NONBLOCK);
             travelers[i].src  = srcs[i];
             travelers[i].dst  = dsts[i];
@@ -483,6 +507,7 @@ static int run_m7(int argc, char *argv[])
             }
             close(pfds[i][0]);
             close(sfds[i][1]);
+            close(afds[i][1]);
             dijkstra_result_free(&travelers[i].path);
         }
         /* reset scheduler state on restart */
