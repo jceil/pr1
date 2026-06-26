@@ -124,15 +124,33 @@ static int run_m4(int argc, char *argv[])
 static void child_run(int src, int dst, const char *filepath,
                       int write_fd, int start_fd)
 {
-    char go; read(start_fd, &go, 1); close(start_fd);
+    char go; read(start_fd, &go, 1); 
     int ss[MAX_TRAVELERS], ds[MAX_TRAVELERS], t = 0;
     Graph *g = parse_input_multi(filepath, ss, ds, &t);
-    if (!g) { int v=MSG_DEST; write(write_fd,&v,sizeof(v)); close(write_fd); exit(1); }
+    if (!g) {
+    int v = MSG_DEST;
+    write(write_fd, &v, sizeof(v));
+
+    char finish;
+    read(start_fd, &finish, 1);
+
+    close(start_fd);
+    close(write_fd);
+    exit(1);
+}
     DijkstraResult r = dijkstra(g, src, dst);
     if (!r.found) {
-        int v=MSG_DEST; write(write_fd,&v,sizeof(v));
-        close(write_fd); graph_free(g); exit(0);
-    }
+    int v = MSG_DEST;
+    write(write_fd, &v, sizeof(v));
+
+    char finish;
+    read(start_fd, &finish, 1);
+
+    close(start_fd);
+    close(write_fd);
+    graph_free(g);
+    exit(0);
+}
     for (int i = 0; i < r.path_len - 1; i++) {
         write(write_fd, &r.path[i], sizeof(int));
         /* wait 1 second at intermediate nodes BEFORE leaving */
@@ -150,11 +168,16 @@ static void child_run(int src, int dst, const char *filepath,
         }
     }
     int v = MSG_DEST;
-    write(write_fd, &v, sizeof(v));
-    close(write_fd);
-    dijkstra_result_free(&r);
-    graph_free(g);
-    exit(0);
+write(write_fd, &v, sizeof(v));
+
+char finish;
+read(start_fd, &finish, 1);   // wait for parent approval
+
+close(start_fd);
+close(write_fd);
+dijkstra_result_free(&r);
+graph_free(g);
+exit(0);
 }
 
 static int run_m5(int argc, char *argv[])
@@ -200,8 +223,12 @@ static int run_m5(int argc, char *argv[])
         }
         do_restart = gui_multi_run_m5(g, travelers, T, pfds, sfds, srcs, dsts);
         for (int i = 0; i < T; i++) {
+    char finish = 'X';
+    write(sfds[i][1], &finish, 1);
+}
+        for (int i = 0; i < T; i++) {
             if (travelers[i].pid > 0) {
-                kill(travelers[i].pid, SIGTERM);
+               
                 waitpid(travelers[i].pid, NULL, 0);
             }
             close(pfds[i][0]);
