@@ -335,6 +335,16 @@ int  gui_multi_run_m5(const Graph *g, Traveler *travelers, int T,
                             travelers[i].x = pos[u].x + frac*(pos[v].x - pos[u].x);
                             travelers[i].y = pos[u].y + frac*(pos[v].y - pos[u].y);
                         }
+                    } else if (node == -4) {
+                        /* --- ADDED: Handle NO PATH message --- */
+                        printf("[PID=%d] ERROR: No path to destination %d found!\n", 
+                               travelers[i].pid, travelers[i].dst);
+                        fflush(stdout);
+                        travelers[i].done = 1;
+                        travelers[i].waiting = 0;
+                        kill(travelers[i].pid, SIGTERM);
+                        waitpid(travelers[i].pid, NULL, 0);
+                        travelers[i].pid = -1;
                     } else {
                         /* ARRIVED AT NODE */
                         int next = -1;

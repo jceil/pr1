@@ -14,6 +14,7 @@
 
 #define MSG_DEST -1
 #define MSG_WAIT -2
+#define MSG_NO_PATH -4
 #define STEP_US  300000
 #define WAIT_US  1000000
 
@@ -130,7 +131,8 @@ static void child_run(int src, int dst, const char *filepath,
     if (!g) { int v=MSG_DEST; write(write_fd,&v,sizeof(v)); close(write_fd); exit(1); }
     DijkstraResult r = dijkstra(g, src, dst);
     if (!r.found) {
-        int v=MSG_DEST; write(write_fd,&v,sizeof(v));
+        int v = MSG_NO_PATH; /* CHANGED: Send the new special message */
+        write(write_fd, &v, sizeof(v));
         close(write_fd); graph_free(g); exit(0);
     }
     for (int i = 0; i < r.path_len - 1; i++) {
